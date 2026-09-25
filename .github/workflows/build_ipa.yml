@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: 1. Fetch Source Code
         uses: actions/checkout@v6
-        - name: Apply memory-limit patch v2
+      - name: Apply memory-limit patch v2
         run: |
           git apply --check StikDebug-memory-limit-v2.patch
           git apply StikDebug-memory-limit-v2.patch
