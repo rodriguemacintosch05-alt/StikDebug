@@ -1,0 +1,186 @@
+diff --git a/StikDebug/Device/JITEnableContext.swift	2026-09-23 23:22:17.000000000 +0000 b/StikDebug/Device/JITEnableContext.swift	2026-09-23 23:22:17.000000000 +0000
+--- a/StikDebug/Device/JITEnableContext.swift	2026-09-23 23:22:17.000000000 +0000
++++ b/StikDebug/Device/JITEnableContext.swift	2026-09-25 02:27:34.785541558 +0000
+@@ -496,6 +496,20 @@
+         return try body(processControl)
+     }
+ 
++    func disableMemoryLimit(forPID pid: Int32) throws {
++        guard pid > 0 else {
++            throw makeError("Invalid process ID")
++        }
++
++        try withConnectedRemoteServer { remoteServer in
++            try withProcessControl(remoteServer: remoteServer) { processControl in
++                if let ffiError = process_control_disable_memory_limit(processControl, UInt64(pid)) {
++                    throw error(from: ffiError, fallback: "Failed to disable memory limit")
++                }
++            }
++        }
++    }
++
+     private func connectHeartbeatKeepAlive(logger: LogFunc?) throws -> DebugHeartbeatKeepAlive {
+         return DebugHeartbeatKeepAlive(
+             logger: logger,
+diff --git a/StikDebug/Views/ProcessInspectorView.swift	2026-09-23 23:22:17.000000000 +0000 b/StikDebug/Views/ProcessInspectorView.swift	2026-09-23 23:22:17.000000000 +0000
+--- a/StikDebug/Views/ProcessInspectorView.swift	2026-09-23 23:22:17.000000000 +0000
++++ b/StikDebug/Views/ProcessInspectorView.swift	2026-09-25 02:27:34.785809512 +0000
+@@ -68,7 +68,8 @@
+                             isConfirming: killCandidate?.pid == process.pid,
+                             onResumeTap: { viewModel.control(.resume, process: $0) },
+                             onPauseTap: { viewModel.control(.pause, process: $0) },
+-                            onKillTap: { handleKillTap(for: $0) }
++                            onKillTap: { handleKillTap(for: $0) },
++                            onDisableMemoryLimitTap: { viewModel.control(.disableMemoryLimit, process: $0) }
+                         )
+                     }
+                 }
+@@ -107,8 +108,9 @@
+     case resume
+     case pause
+     case kill
++    case disableMemoryLimit
+ 
+-    var signal: Int32 {
++    var signal: Int32? {
+         switch self {
+         case .resume:
+             return Int32(SIGCONT)
+@@ -116,6 +118,8 @@
+             return Int32(SIGSTOP)
+         case .kill:
+             return Int32(SIGKILL)
++        case .disableMemoryLimit:
++            return nil
+         }
+     }
+ 
+@@ -127,6 +131,8 @@
+             return "Pause"
+         case .kill:
+             return "Kill"
++        case .disableMemoryLimit:
++            return "Memory Limit"
+         }
+     }
+ 
+@@ -138,6 +144,8 @@
+             return "pause.circle"
+         case .kill:
+             return "xmark.circle"
++        case .disableMemoryLimit:
++            return "infinity.circle"
+         }
+     }
+ 
+@@ -149,6 +157,8 @@
+             return .orange
+         case .kill:
+             return .red
++        case .disableMemoryLimit:
++            return .blue
+         }
+     }
+ 
+@@ -160,6 +170,8 @@
+             return "Pausing Process"
+         case .kill:
+             return "Terminating Process"
++        case .disableMemoryLimit:
++            return "Disabling Memory Limit"
+         }
+     }
+ 
+@@ -171,6 +183,8 @@
+             return "Pause Timed Out"
+         case .kill:
+             return "Kill Timed Out"
++        case .disableMemoryLimit:
++            return "Memory Limit Action Timed Out"
+         }
+     }
+ 
+@@ -182,6 +196,8 @@
+             return "Pause Failed"
+         case .kill:
+             return "Kill Failed"
++        case .disableMemoryLimit:
++            return "Memory Limit Change Failed"
+         }
+     }
+ 
+@@ -193,6 +209,8 @@
+             return "Process Paused"
+         case .kill:
+             return "Process Terminated"
++        case .disableMemoryLimit:
++            return "Memory Limit Disabled"
+         }
+     }
+ 
+@@ -204,6 +222,8 @@
+             return "Sent SIGSTOP (17) to PID \(pid)."
+         case .kill:
+             return "PID \(pid) was terminated."
++        case .disableMemoryLimit:
++            return "Memory limit was disabled for PID \(pid)."
+         }
+     }
+ 
+@@ -215,6 +235,8 @@
+             return "Could not confirm pause for PID \(pid). Try again."
+         case .kill:
+             return "Could not confirm termination for PID \(pid). Try again."
++        case .disableMemoryLimit:
++            return "Could not confirm the memory-limit change for PID \(pid). Try again."
+         }
+     }
+ }
+@@ -227,6 +249,7 @@
+     let onResumeTap: (ProcessInfoEntry) -> Void
+     let onPauseTap: (ProcessInfoEntry) -> Void
+     let onKillTap: (ProcessInfoEntry) -> Void
++    let onDisableMemoryLimitTap: (ProcessInfoEntry) -> Void
+     
+     var body: some View {
+         VStack(alignment: .leading, spacing: 4) {
+@@ -297,6 +320,18 @@
+                         .tint(isConfirming ? .green : ProcessControlAction.kill.tint)
+                         .labelStyle(.iconOnly)
+                         .disabled(isBusy)
++
++                        Button {
++                            onDisableMemoryLimitTap(process)
++                        } label: {
++                            Image(systemName: ProcessControlAction.disableMemoryLimit.systemImage)
++                                .font(.title3)
++                        }
++                        .buttonStyle(.bordered)
++                        .controlSize(.small)
++                        .tint(ProcessControlAction.disableMemoryLimit.tint)
++                        .labelStyle(.iconOnly)
++                        .disabled(isBusy)
+                     }
+                 }
+             }
+@@ -425,7 +460,19 @@
+             var err: NSError?
+             let success: Bool
+             do {
+-                try JITEnableContext.shared.sendSignal(action.signal, toProcessWithPID: Int32(targetPID))
++                switch action {
++                case .disableMemoryLimit:
++                    try JITEnableContext.shared.disableMemoryLimit(forPID: Int32(targetPID))
++                case .resume, .pause, .kill:
++                    guard let signal = action.signal else {
++                        throw NSError(
++                            domain: "StikDebug",
++                            code: -1,
++                            userInfo: [NSLocalizedDescriptionKey: "No signal is defined for this process action."]
++                        )
++                    }
++                    try JITEnableContext.shared.sendSignal(signal, toProcessWithPID: Int32(targetPID))
++                }
+                 success = true
+             } catch let nsError as NSError {
+                 err = nsError
