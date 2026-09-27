@@ -80,8 +80,9 @@ struct ProcessInspectorView: View {
         .listStyle(.insetGrouped)
         .refreshable { viewModel.refresh() }
         }
-private extension ProcessInspectorView {
-    func handleKillTap(for process: ProcessInfoEntry) {
+        }
+        private extension ProcessInspectorView {
+        func handleKillTap(for process: ProcessInfoEntry) {
         if killCandidate?.pid == process.pid {
             killConfirmTask?.cancel()
             killConfirmTask = nil
