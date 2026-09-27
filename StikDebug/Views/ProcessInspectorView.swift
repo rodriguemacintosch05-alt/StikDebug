@@ -461,8 +461,7 @@ enum ProcessControlAction: String {
             } else {
                     self.actionAlertMessage = errorMessage
                     self.showActionAlert = true
-                }
             }
-        }
-    }
-}
+            }
+            }
+            }
