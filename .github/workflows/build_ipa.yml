@@ -23,10 +23,7 @@ jobs:
     steps:
       - name: 1. Fetch Source Code
         uses: actions/checkout@v6
-      - name: Apply memory-limit patch v2
-        run: |
-          git apply --check StikDebug/StikDebug-memory-limit-FINAL.patch
-          git apply StikDebug/StikDebug-memory-limit-FINAL.patch
+       
         
 
       - name: 2. Configure Xcode Environment
