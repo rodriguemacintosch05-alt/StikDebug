@@ -222,9 +222,9 @@ enum ProcessControlAction: String {
             return "Could not confirm termination for PID \(pid). Try again."
         case .disableMemoryLimit:
             return "Could not confirm memory limit change for PID \(pid)."
-        }
-
-private struct ProcessRow: View {
+    }
+    }
+    private struct ProcessRow: View {
     let process: ProcessInfoEntry
     let activeControl: ProcessControlAction?
     let isBusy: Bool
