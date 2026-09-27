@@ -24,7 +24,10 @@ struct ProcessInspectorView: View {
                         .disabled(viewModel.isRefreshing)
                     }
                 }
-                .searchable(text: $viewModel.searchText, placement: .navigationBarDrawer(displayMode: .always))
+                .searchable(
+                    text: $viewModel.searchText,
+                    placement: .navigationBarDrawer(displayMode: .always)
+                )
         }
         .task {
             await viewModel.startAutoRefresh()
@@ -54,6 +57,7 @@ struct ProcessInspectorView: View {
                         .font(.title2.bold())
                 }
             }
+
             Section("Processes") {
                 if viewModel.filteredProcesses.isEmpty {
                     Text("No matching processes.")
@@ -71,18 +75,21 @@ struct ProcessInspectorView: View {
                             onKillTap: { handleKillTap(for: $0) },
                             onDisableMemoryLimitTap: { process in
                                 viewModel.control(.disableMemoryLimit, process: process)
-        },
-        )
-        }
-        }
-        }
+                            }
+                        )
+                    }
+                }
+            }
         }
         .listStyle(.insetGrouped)
-        .refreshable { viewModel.refresh() }
+        .refreshable {
+            viewModel.refresh()
         }
-        }
-        private extension ProcessInspectorView {
-        func handleKillTap(for process: ProcessInfoEntry) {
+    }
+}
+
+private extension ProcessInspectorView {
+    func handleKillTap(for process: ProcessInfoEntry) {
         if killCandidate?.pid == process.pid {
             killConfirmTask?.cancel()
             killConfirmTask = nil
@@ -109,6 +116,7 @@ enum ProcessControlAction: String {
     case resume
     case pause
     case kill
+    case disableMemoryLimit
 
     var signal: Int32 {
         switch self {
@@ -118,6 +126,8 @@ enum ProcessControlAction: String {
             return Int32(SIGSTOP)
         case .kill:
             return Int32(SIGKILL)
+        case .disableMemoryLimit:
+            return 0
         }
     }
 
@@ -129,6 +139,8 @@ enum ProcessControlAction: String {
             return "Pause"
         case .kill:
             return "Kill"
+        case .disableMemoryLimit:
+            return "Disable Memory Limit"
         }
     }
 
@@ -141,9 +153,8 @@ enum ProcessControlAction: String {
         case .kill:
             return "xmark.circle"
         case .disableMemoryLimit:
-            return "infinity.circle"    
-        } 
-     
+            return "infinity.circle"
+        }
     }
 
     var tint: Color {
@@ -154,10 +165,11 @@ enum ProcessControlAction: String {
             return .orange
         case .kill:
             return .red
-        case .disableMemorylimit:
-            return .blue    
+        case .disableMemoryLimit:
+            return .blue
         }
-        }
+    }
+
     var progressTitle: String {
         switch self {
         case .resume:
@@ -166,12 +178,12 @@ enum ProcessControlAction: String {
             return "Pausing Process"
         case .kill:
             return "Terminating Process"
-        case .disableMemorylimit:
+        case .disableMemoryLimit:
             return "Disabling Memory Limit"
         }
-        }
-    
-        var timeoutTitle: String {
+    }
+
+    var timeoutTitle: String {
         switch self {
         case .resume:
             return "Resume Timed Out"
@@ -182,8 +194,8 @@ enum ProcessControlAction: String {
         case .disableMemoryLimit:
             return "Memory Limit Timed Out"
         }
-        }
-    
+    }
+
     var failureTitle: String {
         switch self {
         case .resume:
@@ -195,8 +207,8 @@ enum ProcessControlAction: String {
         case .disableMemoryLimit:
             return "Memory Limit Failed"
         }
-        }
-    
+    }
+
     var successTitle: String {
         switch self {
         case .resume:
@@ -208,7 +220,8 @@ enum ProcessControlAction: String {
         case .disableMemoryLimit:
             return "Memory Limit Disabled"
         }
-        }
+    }
+
     func successMessage(for pid: Int) -> String {
         switch self {
         case .resume:
@@ -220,8 +233,8 @@ enum ProcessControlAction: String {
         case .disableMemoryLimit:
             return "Memory Limit Disabled"
         }
-        }
-    
+    }
+
     func timeoutMessage(for pid: Int) -> String {
         switch self {
         case .resume:
@@ -232,10 +245,11 @@ enum ProcessControlAction: String {
             return "Could not confirm termination for PID \(pid). Try again."
         case .disableMemoryLimit:
             return "Could not confirm memory limit change for PID \(pid)."
+        }
     }
-    }
-    }
-    private struct ProcessRow: View {
+}
+
+private struct ProcessRow: View {
     let process: ProcessInfoEntry
     let activeControl: ProcessControlAction?
     let isBusy: Bool
@@ -243,7 +257,8 @@ enum ProcessControlAction: String {
     let onResumeTap: (ProcessInfoEntry) -> Void
     let onPauseTap: (ProcessInfoEntry) -> Void
     let onKillTap: (ProcessInfoEntry) -> Void
-    let onDisableMemoryLimitTap: (ProcessInfoEntry) -> Void 
+    let onDisableMemoryLimitTap: (ProcessInfoEntry) -> Void
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -254,16 +269,19 @@ enum ProcessControlAction: String {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+
             if let bundle = process.bundleID, !bundle.isEmpty {
                 Text(bundle)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
+
             Text(process.executablePath)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
+
             HStack {
                 Spacer()
                 if activeControl != nil {
@@ -313,31 +331,41 @@ enum ProcessControlAction: String {
                         .tint(isConfirming ? .green : ProcessControlAction.kill.tint)
                         .labelStyle(.iconOnly)
                         .disabled(isBusy)
+
+                        Button {
+                            onDisableMemoryLimitTap(process)
+                        } label: {
+                            Image(systemName: ProcessControlAction.disableMemoryLimit.systemImage)
+                                .font(.title3)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(ProcessControlAction.disableMemoryLimit.tint)
+                        .labelStyle(.iconOnly)
+                        .disabled(isBusy)
                     }
-                 Button  {
-                     onDisableMemoryLimitTap(process)
-                 } label: {
-                     Image(systemName: ProcessControlAction.disableMemoryLimit.systemImage)
-                         .font(.title3)
-                 }
-                 .buttonStyle(.bordered)
-                 .controlSize(.small)
-                 .tint(ProcessControlAction.disableMemoryLimit.tint)
-                 .labelStyle(.iconOnly)
-                 .disabled(isBusy)
-            } 
+                }
+            }
         }
-    
+        .padding(.vertical, 4)
     }
-     .padding(.vertical, 4)
-  }
 }
-    
+
 // MARK: - View Model
+
 @MainActor
 final class ProcessInspectorViewModel: ObservableObject {
+    @Published private(set) var processes: [ProcessInfoEntry] = []
+    @Published var searchText: String = ""
+    @Published var isRefreshing = false
+    @Published var showErrorAlert = false
+    @Published var errorAlertTitle = ""
+    @Published var errorAlertMessage = ""
+    @Published private(set) var activeControlState: (pid: Int, action: ProcessControlAction)?
+    @Published var showActionAlert = false
+    @Published var actionAlertTitle = ""
     @Published var actionAlertMessage = ""
-    
+
     private var refreshTask: Task<Void, Never>?
     private var controlTimeoutTask: Task<Void, Never>?
     @Published private(set) var lastUpdated: Date?
@@ -357,12 +385,12 @@ final class ProcessInspectorViewModel: ObservableObject {
             "\($0.pid)".contains(searchText)
         }
     }
-    
+
     var lastUpdatedText: String {
         guard let date = lastUpdated else { return "—" }
         return Self.relativeDateFormatter.localizedString(for: date, relativeTo: Date())
     }
-    
+
     func startAutoRefresh() async {
         refresh()
         refreshTask = Task { [weak self] in
@@ -375,14 +403,14 @@ final class ProcessInspectorViewModel: ObservableObject {
             }
         }
     }
-    
+
     func stopAutoRefresh() {
         refreshTask?.cancel()
         refreshTask = nil
         controlTimeoutTask?.cancel()
         controlTimeoutTask = nil
     }
-    
+
     func refresh() {
         guard !isRefreshing else { return }
         isRefreshing = true
@@ -404,7 +432,7 @@ final class ProcessInspectorViewModel: ObservableObject {
             }
         }
     }
-    
+
     var isRunningControlAction: Bool {
         activeControlState != nil
     }
@@ -425,28 +453,32 @@ final class ProcessInspectorViewModel: ObservableObject {
             showActionAlert = true
             return
         }
+
         let targetPID = process.pid
         activeControlState = (targetPID, action)
         controlTimeoutTask?.cancel()
         controlTimeoutTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(for: .seconds(8))
-            if self.activeControlState?.pid == targetPID && self.activeControlState?.action == action {
+            if self.activeControlState?.pid == targetPID &&
+                self.activeControlState?.action == action {
                 self.activeControlState = nil
                 self.actionAlertTitle = action.timeoutTitle
                 self.actionAlertMessage = action.timeoutMessage(for: targetPID)
                 self.showActionAlert = true
             }
         }
+
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             var err: NSError?
             let success: Bool
+
             do {
                 if action == .disableMemoryLimit {
-                    try JITEnableContext.shared.disableMemoryLimit(forPID: In32(targetPID))
+                    try JITEnableContext.shared.disableMemoryLimit(forPID: Int32(targetPID))
                 } else {
-                    try JITEnableContext.shared.senSignal(
+                    try JITEnableContext.shared.sendSignal(
                         action.signal,
                         toProcessWithPID: Int32(targetPID)
                     )
@@ -456,15 +488,31 @@ final class ProcessInspectorViewModel: ObservableObject {
                 err = nsError
                 success = false
             }
-            if sucess {
-                self.actionAlertTitle = action.successTitle
-                self.actionAlertMessage = action.successMessage(for: targetPID)
-                self.showActionAlert = true
-                self.refresh()
-            } else {
+
+            let errorMessage = err?.localizedDescription ?? "Unknown error"
+
+            await MainActor.run {
+                self.controlTimeoutTask?.cancel()
+                self.controlTimeoutTask = nil
+
+                guard self.activeControlState?.pid == targetPID &&
+                        self.activeControlState?.action == action else {
+                    return
+                }
+
+                self.activeControlState = nil
+
+                if success {
+                    self.actionAlertTitle = action.successTitle
+                    self.actionAlertMessage = action.successMessage(for: targetPID)
+                    self.showActionAlert = true
+                    self.refresh()
+                } else {
+                    self.actionAlertTitle = action.failureTitle
                     self.actionAlertMessage = errorMessage
                     self.showActionAlert = true
+                }
             }
-            }
-            }
-            }
+        }
+    }
+}
