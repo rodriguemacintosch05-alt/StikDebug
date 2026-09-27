@@ -68,9 +68,9 @@ struct ProcessInspectorView: View {
                             isConfirming: killCandidate?.pid == process.pid,
                             onResumeTap: { viewModel.control(.resume, process: $0) },
                             onPauseTap: { viewModel.control(.pause, process: $0) },
-                            onKillTap: { handleKillTap(for: $0) }
-                            onDisableMemoryLimitTap: { viewModel.control(.disableMemoryLimit, process: $0) }
-                      )
+                            onKillTap: { handleKillTap(for: $0) },
+                            onDisableMemoryLimitTap: { selectedProcess in
+                                viewModel.control(.disableMemoryLimit, process: selectedProcess)
                 }
             }
         }
