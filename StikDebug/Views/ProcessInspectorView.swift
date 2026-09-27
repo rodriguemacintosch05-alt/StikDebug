@@ -157,6 +157,7 @@ enum ProcessControlAction: String {
         case .disableMemorylimit:
             return .blue    
         }
+        }
     var progressTitle: String {
         switch self {
         case .resume:
@@ -167,8 +168,10 @@ enum ProcessControlAction: String {
             return "Terminating Process"
         case .disableMemorylimit:
             return "Disabling Memory Limit"
-
-    var timeoutTitle: String {
+        }
+        }
+    
+        var timeoutTitle: String {
         switch self {
         case .resume:
             return "Resume Timed Out"
@@ -179,6 +182,8 @@ enum ProcessControlAction: String {
         case .disableMemoryLimit:
             return "Memory Limit Timed Out"
         }
+        }
+    
     var failureTitle: String {
         switch self {
         case .resume:
@@ -190,6 +195,8 @@ enum ProcessControlAction: String {
         case .disableMemoryLimit:
             return "Memory Limit Failed"
         }
+        }
+    
     var successTitle: String {
         switch self {
         case .resume:
@@ -200,6 +207,7 @@ enum ProcessControlAction: String {
             return "Process Terminated"
         case .disableMemoryLimit:
             return "Memory Limit Disabled"
+        }
         }
     func successMessage(for pid: Int) -> String {
         switch self {
@@ -212,6 +220,8 @@ enum ProcessControlAction: String {
         case .disableMemoryLimit:
             return "Memory Limit Disabled"
         }
+        }
+    
     func timeoutMessage(for pid: Int) -> String {
         switch self {
         case .resume:
