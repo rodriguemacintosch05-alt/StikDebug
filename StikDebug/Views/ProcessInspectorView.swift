@@ -333,6 +333,8 @@ enum ProcessControlAction: String {
 }
     
 // MARK: - View Model
+@MainActor
+final class ProcessInspectorViewModel: ObservableObject {
     @Published var actionAlertMessage = ""
     
     private var refreshTask: Task<Void, Never>?
