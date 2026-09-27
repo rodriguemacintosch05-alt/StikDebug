@@ -449,7 +449,7 @@ enum ProcessControlAction: String {
                     )
                 }
                 success = true
-            } catch let nsError as NSError
+            } catch let nsError as NSError {
                 err = nsError
                 success = false
             }
