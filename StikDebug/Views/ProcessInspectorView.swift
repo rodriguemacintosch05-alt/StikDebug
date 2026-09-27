@@ -69,8 +69,8 @@ struct ProcessInspectorView: View {
                             onResumeTap: { viewModel.control(.resume, process: $0) },
                             onPauseTap: { viewModel.control(.pause, process: $0) },
                             onKillTap: { handleKillTap(for: $0) }
-                        )
-                    }
+                            onDisableMemoryLimitTap: { viewModel.control(.disableMemoryLimit, process: $0) }
+                      )
                 }
             }
         }
@@ -138,7 +138,10 @@ enum ProcessControlAction: String {
             return "pause.circle"
         case .kill:
             return "xmark.circle"
-        }
+        case .disableMemoryLimit:
+            return "infinity.circle"    
+        } 
+     
     }
 
     var tint: Color {
@@ -149,9 +152,9 @@ enum ProcessControlAction: String {
             return .orange
         case .kill:
             return .red
+        case .disableMemorylimit:
+            return .blue    
         }
-    }
-
     var progressTitle: String {
         switch self {
         case .resume:
@@ -160,8 +163,8 @@ enum ProcessControlAction: String {
             return "Pausing Process"
         case .kill:
             return "Terminating Process"
-        }
-    }
+        case .disableMemorylimit:
+            return "Disabling Memory Limit"
 
     var timeoutTitle: String {
         switch self {
@@ -171,9 +174,9 @@ enum ProcessControlAction: String {
             return "Pause Timed Out"
         case .kill:
             return "Kill Timed Out"
+        case .disableMemoryLimit:
+            return "Memory Limit Timed Out"
         }
-    }
-
     var failureTitle: String {
         switch self {
         case .resume:
@@ -182,9 +185,9 @@ enum ProcessControlAction: String {
             return "Pause Failed"
         case .kill:
             return "Kill Failed"
+        case .disableMemoryLimit:
+            return "Memory Limit Failed"
         }
-    }
-
     var successTitle: String {
         switch self {
         case .resume:
@@ -193,9 +196,9 @@ enum ProcessControlAction: String {
             return "Process Paused"
         case .kill:
             return "Process Terminated"
+        case .disableMemoryLimit:
+            return "Memory Limit Disabled"
         }
-    }
-
     func successMessage(for pid: Int) -> String {
         switch self {
         case .resume:
@@ -204,9 +207,9 @@ enum ProcessControlAction: String {
             return "Sent SIGSTOP (17) to PID \(pid)."
         case .kill:
             return "PID \(pid) was terminated."
+        case .disableMemoryLimit:
+            return "Memory Limit Disabled"
         }
-    }
-
     func timeoutMessage(for pid: Int) -> String {
         switch self {
         case .resume:
@@ -215,9 +218,9 @@ enum ProcessControlAction: String {
             return "Could not confirm pause for PID \(pid). Try again."
         case .kill:
             return "Could not confirm termination for PID \(pid). Try again."
+        case .disableMemoryLimit:
+            return "Could not confirm memory limit change for PID \(pid)."
         }
-    }
-}
 
 private struct ProcessRow: View {
     let process: ProcessInfoEntry
@@ -227,7 +230,7 @@ private struct ProcessRow: View {
     let onResumeTap: (ProcessInfoEntry) -> Void
     let onPauseTap: (ProcessInfoEntry) -> Void
     let onKillTap: (ProcessInfoEntry) -> Void
-    
+    let onDisableMemoryLimitTap: (ProcessInfoEntry) -> Void 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -298,26 +301,26 @@ private struct ProcessRow: View {
                         .labelStyle(.iconOnly)
                         .disabled(isBusy)
                     }
-                }
-            }
+                 Button  {
+                     onDisableMemoryLimitTap(process)
+                 } label: {
+                     Image(systemName: ProcessControlAction.disableMemoryLimit.systemImage)
+                         .font(.title3)
+                 }
+                 .buttonStyle(.bordered)
+                 .controlSize(.small)
+                 .tint(ProcessControlAction.disableMemoryLimit.tint)
+                 .labelStyle(.iconOnly)
+                 .disabled(isBusy)
+            } 
         }
-        .padding(.vertical, 4)
+    
     }
+     .padding(.vertical, 4)
+  }
 }
-
+    
 // MARK: - View Model
-
-@MainActor
-final class ProcessInspectorViewModel: ObservableObject {
-    @Published private(set) var processes: [ProcessInfoEntry] = []
-    @Published var searchText: String = ""
-    @Published var isRefreshing = false
-    @Published var showErrorAlert = false
-    @Published var errorAlertTitle = ""
-    @Published var errorAlertMessage = ""
-    @Published private(set) var activeControlState: (pid: Int, action: ProcessControlAction)?
-    @Published var showActionAlert = false
-    @Published var actionAlertTitle = ""
     @Published var actionAlertMessage = ""
     
     private var refreshTask: Task<Void, Never>?
@@ -425,25 +428,25 @@ final class ProcessInspectorViewModel: ObservableObject {
             var err: NSError?
             let success: Bool
             do {
-                try JITEnableContext.shared.sendSignal(action.signal, toProcessWithPID: Int32(targetPID))
+                if action == .disableMemoryLimit {
+                    try JITEnableContext.shared.disableMemoryLimit(forPID: In32(targetPID))
+                } else {
+                    try JITEnableContext.shared.senSignal(
+                        action.signal,
+                        toProcessWithPID: Int32(targetPID)
+                    )
+                }
                 success = true
-            } catch let nsError as NSError {
+            } catch let nsError as NSError
                 err = nsError
                 success = false
             }
-            let errorMessage = err?.localizedDescription ?? "Unknown error"
-            await MainActor.run {
-                self.controlTimeoutTask?.cancel()
-                self.controlTimeoutTask = nil
-                guard self.activeControlState?.pid == targetPID && self.activeControlState?.action == action else { return }
-                self.activeControlState = nil
-                if success {
-                    self.actionAlertTitle = action.successTitle
-                    self.actionAlertMessage = action.successMessage(for: targetPID)
-                    self.showActionAlert = true
-                    self.refresh()
-                } else {
-                    self.actionAlertTitle = action.failureTitle
+            if sucess {
+                self.actionAlertTitle = action.successTitle
+                self.actionAlertMessage = action.successMessage(for: targetPID)
+                self.showActionAlert = true
+                self.refresh()
+            } else {
                     self.actionAlertMessage = errorMessage
                     self.showActionAlert = true
                 }
