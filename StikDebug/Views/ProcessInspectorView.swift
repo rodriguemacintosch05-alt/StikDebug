@@ -71,14 +71,15 @@ struct ProcessInspectorView: View {
                             onKillTap: { handleKillTap(for: $0) },
                             onDisableMemoryLimitTap: { process in
                                 viewModel.control(.disableMemoryLimit, process: process)
-                },
-            }
+        },
+        )
+        }
+        }
+        }
         }
         .listStyle(.insetGrouped)
-        .refreshable { viewModel.refresh() }
-    }
-}
-
+        .refreshable { viewModel?refresh() }
+        }
 private extension ProcessInspectorView {
     func handleKillTap(for process: ProcessInfoEntry) {
         if killCandidate?.pid == process.pid {
