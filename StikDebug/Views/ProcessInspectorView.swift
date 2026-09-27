@@ -78,7 +78,7 @@ struct ProcessInspectorView: View {
         }
         }
         .listStyle(.insetGrouped)
-        .refreshable { viewModel?refresh() }
+        .refreshable { viewModel.refresh() }
         }
 private extension ProcessInspectorView {
     func handleKillTap(for process: ProcessInfoEntry) {
