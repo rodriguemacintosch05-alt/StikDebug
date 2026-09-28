@@ -843,4 +843,19 @@ final class JITEnableContext {
             }
         }
     }
+
+func disableMemoryLimit(forPID pid: Int32) throws {
+    try withConnectedRemoteServer { remoteServer in
+        try withProcessControl(remoteServer: remoteServer) { processControl in
+            if let ffiError = process_control_disable_memory_limit(
+                processControl,
+                UInt64(pid)
+            ) {
+                throw error(
+                    from: ffiError,
+                    fallback: "Failed to disable memory limit"
+                )
+            }
+        }
+    }
 }
